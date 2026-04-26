@@ -20,7 +20,6 @@ type apiConfig struct {
 func main() {
 	godotenv.Load()
 	dbUrl := os.Getenv("DB_URL")
-	log.Println("connecting to:", dbUrl)
 	dbConnection, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		log.Fatal("cannot connect to database:", err)
@@ -33,9 +32,10 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Get("/", apiCfg.getHealth)
 	r.Post("/api/v1/notes", apiCfg.createNoteHandler)
+	r.Get("/api/v1/notes", apiCfg.getAllNoteHandler)
 	r.Get("/api/v1/notes/{noteID}", apiCfg.getNoteHandler)
-	r.Post("/api/v1/notes", apiCfg.createNoteHandler)
-	r.Post("/api/v1/notes", apiCfg.createNoteHandler)
+	r.Put("/api/v1/notes/{noteID}", apiCfg.updateNoteHandler)
+	r.Delete("/api/v1/notes/{noteID}", apiCfg.deleteNoteHandler)
 	http.ListenAndServe(":3000", r)
 }
 

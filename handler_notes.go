@@ -64,5 +64,112 @@ func (cfg *apiConfig) createNoteHandler(w http.ResponseWriter, r *http.Request) 
 
 func (cfg *apiConfig) getNoteHandler(w http.ResponseWriter, r *http.Request) {
 	noteIDParam := chi.URLParam(r, "noteID")
-	return
+	noteUUID, err := uuid.Parse(noteIDParam)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "invalid noteID", err)
+		return
+	}
+	note, err := cfg.db.GetNoteByID(r.Context(), noteUUID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "note not found", err)
+		return
+	}
+	var body *string
+	if note.Body.Valid {
+		body = &note.Body.String
+	}
+
+	respondWithJSON(w, http.StatusOK, Note{
+		ID:        note.ID,
+		CreatedAt: note.CreatedAt,
+		UpdatedAt: note.UpdatedAt,
+		Title:     note.Title,
+		Body:      body,
+	})
+}
+
+func (cfg *apiConfig) getAllNoteHandler(w http.ResponseWriter, r *http.Request) {
+	notes, err := cfg.db.GetAllNotes(r.Context())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "could not get notes", err)
+		return
+	}
+	var notesList []Note
+	for _, notex := range notes {
+		var body *string
+		if notex.Body.Valid {
+			body = &notex.Body.String
+		}
+		notesList = append(notesList, Note{
+			ID:        notex.ID,
+			CreatedAt: notex.CreatedAt,
+			UpdatedAt: notex.UpdatedAt,
+			Title:     notex.Title,
+			Body:      body,
+		})
+	}
+	respondWithJSON(w, http.StatusOK, notesList)
+}
+
+func (cfg *apiConfig) updateNoteHandler(w http.ResponseWriter, r *http.Request) {
+	noteIDParam := chi.URLParam(r, "noteID")
+	noteUUID, err := uuid.Parse(noteIDParam)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "invalid noteID", err)
+		return
+	}
+
+	type parameters struct {
+		Title string `json:"title"`
+		Body  string `json:"body"`
+	}
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "required Title", err)
+		return
+	}
+
+	newNote, err := cfg.db.UpdateNote(r.Context(), database.UpdateNoteParams{
+		ID:    noteUUID,
+		Title: params.Title,
+		Body: sql.NullString{
+			String: params.Body,
+			Valid:  params.Body != "",
+		},
+	})
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "note not found", err)
+		return
+	}
+	var body *string
+	if newNote.Body.Valid {
+		body = &newNote.Body.String
+	}
+
+	respondWithJSON(w, http.StatusOK, Note{
+		ID:        newNote.ID,
+		CreatedAt: newNote.CreatedAt,
+		UpdatedAt: newNote.UpdatedAt,
+		Title:     newNote.Title,
+		Body:      body,
+	})
+}
+
+func (cfg *apiConfig) deleteNoteHandler(w http.ResponseWriter, r *http.Request) {
+	noteIDParam := chi.URLParam(r, "noteID")
+	noteUUID, err := uuid.Parse(noteIDParam)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "invalid noteID", err)
+		return
+	}
+
+	err = cfg.db.DeleteNoteByID(r.Context(), noteUUID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "note not found", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusNoContent, struct{}{})
 }

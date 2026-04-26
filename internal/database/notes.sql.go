@@ -8,13 +8,15 @@ package database
 import (
 	"context"
 	"database/sql"
+
+	"github.com/google/uuid"
 )
 
 const createNote = `-- name: CreateNote :one
 INSERT INTO notes (
-    id, created_at, updated_at, title, body 
+    title, body 
 ) VALUES (
-    gen_random_uuid(), NOW(), NOW(), $1, $2
+    $1, $2
 ) RETURNING id, created_at, updated_at, title, body
 `
 
@@ -25,6 +27,101 @@ type CreateNoteParams struct {
 
 func (q *Queries) CreateNote(ctx context.Context, arg CreateNoteParams) (Note, error) {
 	row := q.db.QueryRowContext(ctx, createNote, arg.Title, arg.Body)
+	var i Note
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Title,
+		&i.Body,
+	)
+	return i, err
+}
+
+const deleteAllNotes = `-- name: DeleteAllNotes :exec
+DELETE FROM notes
+`
+
+func (q *Queries) DeleteAllNotes(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, deleteAllNotes)
+	return err
+}
+
+const deleteNoteByID = `-- name: DeleteNoteByID :exec
+DELETE FROM notes
+    WHERE id = $1
+`
+
+func (q *Queries) DeleteNoteByID(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteNoteByID, id)
+	return err
+}
+
+const getAllNotes = `-- name: GetAllNotes :many
+SELECT id, created_at, updated_at, title, body FROM notes
+`
+
+func (q *Queries) GetAllNotes(ctx context.Context) ([]Note, error) {
+	rows, err := q.db.QueryContext(ctx, getAllNotes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Note
+	for rows.Next() {
+		var i Note
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Title,
+			&i.Body,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getNoteByID = `-- name: GetNoteByID :one
+SELECT id, created_at, updated_at, title, body FROM notes WHERE id = $1
+`
+
+func (q *Queries) GetNoteByID(ctx context.Context, id uuid.UUID) (Note, error) {
+	row := q.db.QueryRowContext(ctx, getNoteByID, id)
+	var i Note
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Title,
+		&i.Body,
+	)
+	return i, err
+}
+
+const updateNote = `-- name: UpdateNote :one
+UPDATE notes
+SET title = COALESCE($2, title), body = COALESCE($3, body), updated_at = NOW()
+WHERE id = $1
+RETURNING id, created_at, updated_at, title, body
+`
+
+type UpdateNoteParams struct {
+	ID    uuid.UUID
+	Title string
+	Body  sql.NullString
+}
+
+func (q *Queries) UpdateNote(ctx context.Context, arg UpdateNoteParams) (Note, error) {
+	row := q.db.QueryRowContext(ctx, updateNote, arg.ID, arg.Title, arg.Body)
 	var i Note
 	err := row.Scan(
 		&i.ID,

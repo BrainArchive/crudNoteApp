@@ -13,8 +13,8 @@ SELECT * FROM notes;
 
 -- name: UpdateNote :one
 UPDATE notes
-SET title = COALESCE($2, title), body = COALESCE($3, body), updated_at = NOW()
-WHERE id = $1
+SET title = COALESCE(sqlc.narg('title')::text, title), body = COALESCE(sqlc.narg('body')::text, body), updated_at = NOW()
+WHERE id = @id 
 RETURNING *;
 
 -- name: DeleteNoteByID :exec

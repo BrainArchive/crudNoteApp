@@ -109,19 +109,19 @@ func (q *Queries) GetNoteByID(ctx context.Context, id uuid.UUID) (Note, error) {
 
 const updateNote = `-- name: UpdateNote :one
 UPDATE notes
-SET title = COALESCE($2, title), body = COALESCE($3, body), updated_at = NOW()
-WHERE id = $1
+SET title = COALESCE($1::text, title), body = COALESCE($2::text, body), updated_at = NOW()
+WHERE id = $3 
 RETURNING id, created_at, updated_at, title, body
 `
 
 type UpdateNoteParams struct {
-	ID    uuid.UUID
-	Title string
+	Title sql.NullString
 	Body  sql.NullString
+	ID    uuid.UUID
 }
 
 func (q *Queries) UpdateNote(ctx context.Context, arg UpdateNoteParams) (Note, error) {
-	row := q.db.QueryRowContext(ctx, updateNote, arg.ID, arg.Title, arg.Body)
+	row := q.db.QueryRowContext(ctx, updateNote, arg.Title, arg.Body, arg.ID)
 	var i Note
 	err := row.Scan(
 		&i.ID,

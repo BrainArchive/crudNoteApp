@@ -120,8 +120,8 @@ func (cfg *apiConfig) updateNoteHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	type parameters struct {
-		Title string `json:"title"`
-		Body  string `json:"body"`
+		Title *string `json:"title"`
+		Body  *string `json:"body"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
@@ -130,19 +130,25 @@ func (cfg *apiConfig) updateNoteHandler(w http.ResponseWriter, r *http.Request) 
 		respondWithError(w, http.StatusBadRequest, "required Title", err)
 		return
 	}
+	var title sql.NullString
+	if params.Title != nil {
+		title = sql.NullString{String: *params.Title, Valid: true}
+	}
+	var textBody sql.NullString
+	if params.Body != nil {
+		textBody = sql.NullString{String: *params.Body, Valid: true}
+	}
 
 	newNote, err := cfg.db.UpdateNote(r.Context(), database.UpdateNoteParams{
 		ID:    noteUUID,
-		Title: params.Title,
-		Body: sql.NullString{
-			String: params.Body,
-			Valid:  params.Body != "",
-		},
+		Title: title,
+		Body:  textBody,
 	})
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "note not found", err)
 		return
 	}
+
 	var body *string
 	if newNote.Body.Valid {
 		body = &newNote.Body.String

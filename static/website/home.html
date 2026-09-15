@@ -1,0 +1,52 @@
+{{define "home"}}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<title>Hello, world!</title>
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<meta name="description" content="" />
+	<link rel="stylesheet" type="text/css" href="./static/website/css/style.css" />
+	<link rel="icon" href="./static/website/favicon.png">
+	<script type="module" src="./static/scripts/datastar.js"></script>
+</head>
+
+<body>
+	<div class="card">
+		<h1>Hello, world!</h1>
+
+		<div class="card">
+			<button data-on:click="@get('/notes')">load notes</button>
+			<div class="card" id='notes'>test</div>
+		</div>
+
+		<div class="card">
+			<input data-bind="foo" />
+			<div class="card" data-text="$foo"></div>
+			<button data-show="$foo != ''" style="display: none">save</button>
+		</div>
+
+		<div class="card">
+			{{range .Notes}}
+			<div class="card">
+				<h2>{{.Title}}</h2>
+				<p>{{.Body}}</p>
+				<a href="/notes/{{.ID}}/edit">edit</a>
+			</div>
+			{{else}}
+			<p>No notes yet.</p>
+			{{end}}
+		</div>
+		<div class="card">
+			<form action="/notes" method="POST">
+				<input type="text" name="title" placeholder="Title" required>
+				<textarea name="body" placeholder="Write something..."></textarea>
+				<button type="submit">Add note</button>
+			</form>
+		</div>
+	</div>
+</body>
+
+</html>
+{{end}}

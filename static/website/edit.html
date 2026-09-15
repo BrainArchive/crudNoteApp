@@ -1,0 +1,29 @@
+{{define "edit"}}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<title>EDIT NOTE</title>
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<meta name="description" content="" />
+	<link rel="stylesheet" type="text/css" href="./static/website/css/style.css" />
+	<link rel="icon" href="./static/website/favicon.png">
+	<script type="module" src="./static/scripts/datastar.js"></script>
+</head>
+
+<body>
+	<div class="card">
+		<h1>EDIT PAGE</h1>
+		<div class="card">
+			<form action="/notes/{{.ID}}" method="POST">
+				<input type="text" name="title" value="{{.Title}}" required>
+				<textarea name="body">{{.Body}}</textarea>
+				<button type="submit">Save</button>
+			</form>
+		</div>
+	</div>
+</body>
+
+</html>
+{{end}}

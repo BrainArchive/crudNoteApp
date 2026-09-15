@@ -1,0 +1,98 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+:root {
+  --grey-900: #1a1a1a;
+  --grey-600: #4a4a4a;
+  --grey-200: #e0e0e0;
+  --yellow: #f2c94c;
+}
+
+html {
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  color: var(--grey-900);
+  background: #ffffff;
+  line-height: 1.5;
+  padding: 1rem;
+
+  /* add these three lines */
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+h1, h2, h3, h4, button, input, label {
+  line-height: 1.1;
+}
+
+div {
+  border: 1px solid var(--grey-200);
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+img, picture {
+  max-width: 100%;
+  display: block;
+}
+
+textarea, select {
+  font: inherit;
+}
+
+input {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid var(--grey-600);
+  border-radius: 4px;
+  font: inherit;
+}
+input:focus {
+  outline: 2px solid var(--yellow);
+  outline-offset: 1px;
+}
+
+button {
+  background: var(--grey-900);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover {
+  background: var(--yellow);
+  color: var(--grey-900);
+}
+
+
+
+/* no media query = base = mobile */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;          /* replaces margin-bottom on every child */
+  border: 1px solid var(--grey-200);
+  border-radius: 4px;
+  padding: 1.5rem;
+  text-align: center;
+  width: 100%;
+  max-width: 320px;
+}
+
+/* enhance for wider viewports */
+@media (min-width: 600px) {
+  .card {
+    padding: 2rem;
+  }
+}

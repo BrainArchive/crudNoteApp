@@ -3,25 +3,31 @@ package main
 import (
 	"database/sql"
 	"embed"
+	"fmt"
+	"html/template"
 	"io/fs"
 	"log"
 	"log/slog"
 	"mime"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
-	"github.com/a-h/templ"
 	"github.com/brainarchive/crudNoteApp/internal/database"
-	"github.com/brainarchive/crudNoteApp/static/website"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
+// "github.com/a-h/templ"
+// "github.com/brainarchive/crudNoteApp/templates"
+
 type apiConfig struct {
-	db *database.Queries
+	db    *database.Queries
+	pages map[string]*template.Template
 }
 
 //go:embed static
@@ -29,44 +35,54 @@ var staticFiles embed.FS
 
 func main() {
 	godotenv.Load()
-	err := mime.AddExtensionType(".js", "text/javascript")
+	var err error
+	err = mime.AddExtensionType(".js", "text/javascript")
+	err = mime.AddExtensionType(".css", "text/css")
 	if err != nil {
 		log.Fatal("can't add extension type to javascript", err)
 	}
+	// the filesystem starts as static/.... because of how go:embed works.
+	// have to strip static so the new root is at ./...
+	files, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		log.Fatal("substituting staticFiles failed", err)
+	}
+
 	dbUrl := os.Getenv("DB_URL")
 	dbConnection, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		log.Fatal("cannot connect to database:", err)
 	}
 	dbQueries := database.New(dbConnection)
+	pages, err := loadTemplates()
 	apiCfg := apiConfig{
-		db: dbQueries,
+		db:    dbQueries,
+		pages: pages,
 	}
-
-	index := website.Index()
+	if err != nil {
+		log.Fatal("error loading template:", err)
+	}
 
 	slog.Info("running server", "port", 3000)
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
-	r.Get("/", templ.Handler(index).ServeHTTP)
+	r.Get("/", apiCfg.homeHandler)
 	r.Get("/notes", apiCfg.loadAllNotes)
+	r.Post("/notes", apiCfg.createNoteFormHandler)
+	r.Get("/notes/{noteID}/edit", apiCfg.editNoteFormHandler)
+	r.Post("/notes/{noteID}", apiCfg.updateNoteFormHandler)
 
-	files, err := fs.Sub(staticFiles, "static")
-	if err != nil {
-	}
 	fileServer(r, "/static", http.FS(files))
 
 	// file servers in golang
-	//
-
-	//	apiRouter := chi.NewRouter()
-	//	apiRouter.Post("/v1/notes", apiCfg.createNoteHandler)
-	//	apiRouter.Get("/v1/notes", apiCfg.getAllNoteHandler)
-	//	apiRouter.Get("/v1/notes/{noteID}", apiCfg.getNoteHandler)
-	//	apiRouter.Put("/v1/notes/{noteID}", apiCfg.updateNoteHandler)
-	//	apiRouter.Delete("/v1/notes/{noteID}", apiCfg.deleteNoteHandler)
-	//	r.Mount("/api/", apiRouter)
-	http.ListenAndServe(":3000", r)
+	apiRouter := chi.NewRouter()
+	apiRouter.Post("/v1/notes", apiCfg.createNoteHandler)
+	apiRouter.Get("/v1/notes", apiCfg.getAllNoteHandler)
+	apiRouter.Get("/v1/notes/{noteID}", apiCfg.getNoteHandler)
+	apiRouter.Put("/v1/notes/{noteID}", apiCfg.updateNoteHandler)
+	apiRouter.Delete("/v1/notes/{noteID}", apiCfg.deleteNoteHandler)
+	r.Mount("/api/", apiRouter)
+	log.Fatal(http.ListenAndServe(":3000", r))
 }
 
 func fileServer(r chi.Router, path string, root http.FileSystem) {
@@ -81,10 +97,68 @@ func fileServer(r chi.Router, path string, root http.FileSystem) {
 	path += "*"
 
 	// FileServer adds to the chi.Router a get path
+	// it'll strip the path string e.g if may path is /static
+	// and I call /static/files
 	r.Get(path, func(w http.ResponseWriter, r *http.Request) {
 		rctx := chi.RouteContext(r.Context())
 		pathPrefix := strings.TrimSuffix(rctx.RoutePattern(), "/*")
 		fs := http.StripPrefix(pathPrefix, http.FileServer(root))
 		fs.ServeHTTP(w, r)
 	})
+}
+
+func loadTemplates() (map[string]*template.Template, error) {
+	// layouts, err := filepath.Glob("static/website/*.html")
+	// partials, err := filepath.Glob("static/website/*.html")
+
+	var pages = map[string]*template.Template{}
+	pageFiles, err := filepath.Glob("static/website/*.html")
+	if err != nil {
+		return nil, err
+	}
+
+	for _, page := range pageFiles {
+		var files []string
+		name := filepath.Base(page) // "home.html"
+		fmt.Println(name)
+		files = append(files, page)
+		pages[name] = template.Must(template.ParseFiles(files...))
+	}
+	return pages, nil
+}
+
+type PageNotes struct {
+	Title string
+	Body  string
+	ID    uuid.UUID
+}
+
+type PageData struct {
+	Notes []PageNotes
+}
+
+func (cfg apiConfig) homeHandler(w http.ResponseWriter, r *http.Request) {
+	var NotesList []Note
+	var err error
+	NotesList, err = cfg.getAllNotes(r.Context())
+	if err != nil {
+		slog.Error("getting all notes error:", "error", err)
+		NotesList = []Note{}
+	}
+	var dbNotes []PageNotes
+	for _, note := range NotesList {
+		dbNotes = append(dbNotes, PageNotes{
+			Title: note.Title,
+			Body:  *note.Body,
+			ID:    note.ID,
+		})
+	}
+
+	data := PageData{
+		Notes: dbNotes,
+	}
+	if err := cfg.pages["home.html"].ExecuteTemplate(w, "home", data); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+
 }

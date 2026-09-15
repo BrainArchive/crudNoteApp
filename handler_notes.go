@@ -3,12 +3,15 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/brainarchive/crudNoteApp/internal/database"
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/starfederation/datastar-go/datastar"
 )
 
 type Note struct {
@@ -86,6 +89,45 @@ func (cfg *apiConfig) getNoteHandler(w http.ResponseWriter, r *http.Request) {
 		Title:     note.Title,
 		Body:      body,
 	})
+}
+
+func (cfg *apiConfig) loadAllNotes(w http.ResponseWriter, r *http.Request) {
+	slog.Info("Loading notes", "endpoint", "/notes")
+	notes, err := cfg.db.GetAllNotes(r.Context())
+	sse := datastar.NewSSE(w, r)
+
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "could not get notes", err)
+		return
+	}
+	var notesList []Note
+	for _, notex := range notes {
+		var body *string
+		if notex.Body.Valid {
+			body = &notex.Body.String
+		}
+		notesList = append(notesList, Note{
+			ID:        notex.ID,
+			CreatedAt: notex.CreatedAt,
+			UpdatedAt: notex.UpdatedAt,
+			Title:     notex.Title,
+			Body:      body,
+		})
+	}
+	var test string
+	test = `<div id='notes'>`
+	for _, note := range notesList {
+		test += fmt.Sprintf(`<div>%s</div>`, note.Title)
+		if *note.Body != "" {
+			test += fmt.Sprintf(`<div>%s</div>`, *note.Body)
+		} else {
+			test += `<div>no body</div>`
+		}
+	}
+	test += `</div>`
+
+	sse.PatchElements(test)
+
 }
 
 func (cfg *apiConfig) getAllNoteHandler(w http.ResponseWriter, r *http.Request) {

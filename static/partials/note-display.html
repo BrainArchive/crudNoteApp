@@ -1,0 +1,12 @@
+{{define "note-display"}}
+<div id="note-{{.ID}}" class="card">
+	<h2>{{.Title}}</h2>
+	<p>{{.Body}}</p>
+	<button data-on:click="@get('/notes/{{.ID}}/edit_note_star')">
+		Edit
+	</button>
+	<button class="error" data-on:click="confirm('Are you sure?') && @delete('/notes/{{.ID}}')">
+		Delete
+	</button>
+</div>
+{{end}}

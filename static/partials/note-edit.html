@@ -1,0 +1,12 @@
+{{define "note-edit"}}
+<div id="note-{{.ID}}" class="card">
+  <form @patch="/notes/{{.ID}}">
+    <input type="text" name="title" value="{{.Title}}">
+    <textarea name="body">{{.Body}}</textarea>
+    <button type="submit">Save</button>
+  </form>
+	<button data-on:click="@get('/notes/{{.ID}}/display_note_star')">
+	  Cancel	
+	</button>
+</div>
+{{end}}

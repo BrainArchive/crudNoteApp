@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"embed"
-	"fmt"
 	"html/template"
 	"io/fs"
 	"log"
@@ -70,11 +69,14 @@ func main() {
 	r.Get("/notes", apiCfg.loadAllNotes)
 	r.Post("/notes", apiCfg.createNoteFormHandler)
 	r.Get("/notes/{noteID}/edit", apiCfg.editNoteFormHandler)
+	r.Get("/notes/{noteID}/edit_note", apiCfg.editNoteFormHandler)
+	r.Get("/notes/{noteID}/edit_note_star", apiCfg.editNoteStarHandler)
+	r.Get("/notes/{noteID}/display_note_star", apiCfg.noteDisplayStarHandler)
 	r.Post("/notes/{noteID}", apiCfg.updateNoteFormHandler)
+	r.Delete("/notes/{noteID}", apiCfg.deleteNoteStarHandler)
 
 	fileServer(r, "/static", http.FS(files))
 
-	// file servers in golang
 	apiRouter := chi.NewRouter()
 	apiRouter.Post("/v1/notes", apiCfg.createNoteHandler)
 	apiRouter.Get("/v1/notes", apiCfg.getAllNoteHandler)
@@ -108,10 +110,12 @@ func fileServer(r chi.Router, path string, root http.FileSystem) {
 }
 
 func loadTemplates() (map[string]*template.Template, error) {
-	// layouts, err := filepath.Glob("static/website/*.html")
-	// partials, err := filepath.Glob("static/website/*.html")
-
 	var pages = map[string]*template.Template{}
+	// layouts, err := filepath.Glob("static/website/*.html")
+	partials, err := filepath.Glob("static/partials/*.html")
+	if err != nil {
+		return nil, err
+	}
 	pageFiles, err := filepath.Glob("static/website/*.html")
 	if err != nil {
 		return nil, err
@@ -120,7 +124,7 @@ func loadTemplates() (map[string]*template.Template, error) {
 	for _, page := range pageFiles {
 		var files []string
 		name := filepath.Base(page) // "home.html"
-		fmt.Println(name)
+		files = append(files, partials...)
 		files = append(files, page)
 		pages[name] = template.Must(template.ParseFiles(files...))
 	}
